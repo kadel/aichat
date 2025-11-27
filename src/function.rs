@@ -138,6 +138,9 @@ pub struct ToolCall {
     pub name: String,
     pub arguments: Value,
     pub id: Option<String>,
+    /// Gemini-specific thought signature for maintaining reasoning context
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub thought_signature: Option<String>,
 }
 
 type CallConfig = (String, String, Vec<String>, HashMap<String, String>);
@@ -162,11 +165,17 @@ impl ToolCall {
         new_calls
     }
 
-    pub fn new(name: String, arguments: Value, id: Option<String>) -> Self {
+    pub fn new(
+        name: String,
+        arguments: Value,
+        id: Option<String>,
+        thought_signature: Option<String>,
+    ) -> Self {
         Self {
             name,
             arguments,
             id,
+            thought_signature,
         }
     }
 

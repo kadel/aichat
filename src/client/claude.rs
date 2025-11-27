@@ -101,6 +101,7 @@ pub async fn claude_chat_completions_streaming(
                                 function_name.clone(),
                                 arguments,
                                 Some(function_id.clone()),
+                                None,
                             ))?;
                         }
                         function_name = name.into();
@@ -141,6 +142,7 @@ pub async fn claude_chat_completions_streaming(
                             function_name.clone(),
                             arguments,
                             Some(function_id.clone()),
+                            None,
                         ))?;
                     }
                 }
@@ -327,6 +329,7 @@ pub fn claude_extract_chat_completions(data: &Value) -> Result<ChatCompletionsOu
                             name.to_string(),
                             input.clone(),
                             Some(id.to_string()),
+                            None,
                         ));
                     }
                 }

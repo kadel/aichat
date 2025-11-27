@@ -205,6 +205,7 @@ pub async fn gemini_chat_completions_streaming(
         let data: Value = res.json().await?;
         catch_error(&data, status.as_u16())?;
     } else {
+        let mut first_function_call = true;
         let handle = |value: &str| -> Result<()> {
             let data: Value = serde_json::from_str(value)?;
             debug!("stream-data: {data}");
@@ -219,7 +220,22 @@ pub async fn gemini_chat_completions_streaming(
                         part["functionCall"]["name"].as_str(),
                         part["functionCall"]["args"].as_object(),
                     ) {
-                        handler.tool_call(ToolCall::new(name.to_string(), json!(args), None))?;
+                        // Extract thought_signature for the first function call
+                        // Note: thoughtSignature is a sibling to functionCall, not nested inside it
+                        let thought_signature = if first_function_call {
+                            first_function_call = false;
+                            part["thoughtSignature"]
+                                .as_str()
+                                .map(|s| s.to_string())
+                        } else {
+                            None
+                        };
+                        handler.tool_call(ToolCall::new(
+                            name.to_string(),
+                            json!(args),
+                            None,
+                            thought_signature,
+                        ))?;
                     }
                 }
             } else if let Some("SAFETY") = data["promptFeedback"]["blockReason"]
@@ -272,6 +288,7 @@ fn gemini_extract_chat_completions_text(data: &Value) -> Result<ChatCompletionsO
     let mut text_parts = vec![];
     let mut tool_calls = vec![];
     if let Some(parts) = data["candidates"][0]["content"]["parts"].as_array() {
+        let mut first_function_call = true;
         for part in parts {
             if let Some(text) = part["text"].as_str() {
                 text_parts.push(text);
@@ -280,7 +297,22 @@ fn gemini_extract_chat_completions_text(data: &Value) -> Result<ChatCompletionsO
                 part["functionCall"]["name"].as_str(),
                 part["functionCall"]["args"].as_object(),
             ) {
-                tool_calls.push(ToolCall::new(name.to_string(), json!(args), None));
+                // Extract thought_signature for the first function call
+                // Note: thoughtSignature is a sibling to functionCall, not nested inside it
+                let thought_signature = if first_function_call {
+                    first_function_call = false;
+                    part["thoughtSignature"]
+                        .as_str()
+                        .map(|s| s.to_string())
+                } else {
+                    None
+                };
+                tool_calls.push(ToolCall::new(
+                    name.to_string(),
+                    json!(args),
+                    None,
+                    thought_signature,
+                ));
             }
         }
     }
@@ -352,13 +384,20 @@ pub fn gemini_build_chat_completions_body(
                         vec![json!({ "role": role, "parts": parts })]
                     },
                     MessageContent::ToolCalls(MessageContentToolCalls { tool_results, .. }) => {
-                        let model_parts: Vec<Value> = tool_results.iter().map(|tool_result| {
-                            json!({
-                                "functionCall": {
-                                    "name": tool_result.call.name,
-                                    "args": tool_result.call.arguments,
+                        let model_parts: Vec<Value> = tool_results.iter().enumerate().map(|(i, tool_result)| {
+                            let function_call = json!({
+                                "name": tool_result.call.name,
+                                "args": tool_result.call.arguments,
+                            });
+                            // Include thoughtSignature at the part level (sibling to functionCall)
+                            // for the first function call if present
+                            let mut part = json!({ "functionCall": function_call });
+                            if i == 0 {
+                                if let Some(ref sig) = tool_result.call.thought_signature {
+                                    part["thoughtSignature"] = json!(sig);
                                 }
-                            })
+                            }
+                            part
                         }).collect();
                         let function_parts: Vec<Value> = tool_results.into_iter().map(|tool_result| {
                             json!({
