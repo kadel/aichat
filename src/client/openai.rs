@@ -120,6 +120,7 @@ pub async fn openai_chat_completions_streaming(
                     function_name.clone(),
                     arguments,
                     normalize_function_id(&function_id),
+                    None,
                 ))?;
             }
             return Ok(true);
@@ -170,6 +171,7 @@ pub async fn openai_chat_completions_streaming(
                         function_name.clone(),
                         arguments,
                         normalize_function_id(&function_id),
+                        None,
                     ))?;
                 }
                 function_name.clear();
@@ -376,6 +378,7 @@ pub fn openai_extract_chat_completions(data: &Value) -> Result<ChatCompletionsOu
                     name.to_string(),
                     arguments,
                     Some(id.to_string()),
+                    None,
                 ));
             }
         }

@@ -173,6 +173,7 @@ async fn chat_completions_streaming(
                             function_name.clone(),
                             arguments,
                             Some(function_id.clone()),
+                            None,
                         ))?;
                     }
                     function_name.clear();
@@ -236,6 +237,7 @@ fn extract_chat_completions(data: &Value) -> Result<ChatCompletionsOutput> {
                     name.to_string(),
                     arguments,
                     Some(id.to_string()),
+                    None,
                 ));
             }
         }
